@@ -1,0 +1,135 @@
+.App {
+  text-align: center;
+}
+
+body {
+  background-color: #ec4e20;
+  color: #ffce0a;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+a {
+  color: #ffbf46;
+}
+
+textarea.inputrow {
+  height: 80px;
+  border-width: 2px;
+  border-style: solid;
+  outline: none;
+  border-radius: 5px;
+  padding: 10px;
+  font-size: 1.2em;
+}
+
+.inputrow {
+  max-width: 680px;
+  width: 100%;
+  resize: none;
+  box-sizing: border-box;
+  background-color: #00000000;
+  color: #ffe3e3;
+  font-family: monospace;
+  border-color: #d30c7b;
+}
+textarea::placeholder,
+input::placeholder {
+  color: #ffe3e3;
+  opacity: 0.5;
+}
+input:focus,
+button:focus {
+  outline: 0;
+  /* some people use shadows too */
+  box-shadow: none;
+}
+
+input[type="email"],
+input[type="text"],
+input[type="password"],
+textarea {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.sentBox {
+  border-width: 2px;
+  border-style: solid;
+  color: #ffe3e3;
+  border-color: #d30c7b;
+  max-width: 680px;
+  border-radius: 5px;
+}
+
+div.inputrow {
+  flex-direction: row;
+  display: flex;
+}
+
+input[type="email"],
+input[type="text"],
+input[type="password"] {
+  max-width: 680px;
+  width: 100%;
+  flex-grow: 1;
+  border-width: 2px;
+  border-style: solid;
+  outline: none;
+  border-radius: 5px;
+  resize: none;
+  padding: 10px;
+  box-sizing: border-box;
+  background-color: #00000000;
+  color: #ffe3e3;
+  font-family: monospace;
+  border-color: #d30c7b;
+  font-size: 1.2em;
+}
+
+.inputrow > input {
+  flex-grow: 1;
+  border-width: 2px;
+  border-style: solid;
+  margin-right: 10px;
+  outline: none;
+  border-radius: 5px;
+  resize: none;
+  padding: 10px;
+  box-sizing: border-box;
+  background-color: #00000000;
+  color: #ffe3e3;
+  font-family: monospace;
+  border-color: #d30c7b;
+  font-size: 1.2em;
+}
+
+button {
+  border-width: 1px;
+  border-style: solid;
+  outline: none;
+  border-radius: 5px;
+  resize: none;
+  padding: 10px 20px;
+  background-color: #d30c7b;
+  color: #ffce0a;
+  font-family: monospace;
+  border: solid 2px;
+  border-color: #ffce0a;
+  font-size: 1.2em;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.Send > * {
+  margin: 12px auto;
+  display: block;
+}
+
+hr {
+  border: solid 1px;
+  border-radius: 5px;
+  /* color: rgba(255, 255, 255, 0.2); */
+  color: #00010355;
+}
