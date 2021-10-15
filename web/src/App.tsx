@@ -20,33 +20,41 @@ function Footer() {
         <p className="m-2">
           you enter the @mit.edu addresses of people you are down to do things
           with. if you both indicate interest in each other for the same
-          category, you will both get an email notifying you of a match! and
-          until a match happens, no one is able to figure out your list of
-          people.
+          category, you will both get an email notifying you of a match!
         </p>
-        <h3 className="font-bold text-lg">about</h3>
+        <h3 className="font-bold text-lg">privacy</h3>
         <p className="m-2">
-          downto.xyz is inspired by the now-dead dildo.io. we believe that there
-          should be fewer taboos, more openness and more physical intimacy in
-          the world, and while downto.xyz obviously isn't the end-all-be-all
-          solution to any of that, we hope that it can contribute to a more open
-          world, even if only by a tiny amount.
+          the data stored on our servers is encrypted using your password, so
+          (as long as your password is long enough) you don't need to worry
+          about your list of preferences being revealed at any point (assuming
+          you trust somewhat rushed unaudited untested code). information is
+          only revealed in the event of a match. a slightly unfortunate side
+          effect of this, and the fact that MIT does not have a public key
+          directory, is that a match will not be detected if person A enters
+          their prefererence for B before B has verified their email, until
+          person A comes back to this page and updates.
         </p>
         <p className="m-2">
           the source code is available at{" "}
           <a href="https://github.com/arvid220u/downto.xyz">
             github.com/arvid220u/downto.xyz
           </a>
-          . feedback and pull requests are very welcome! the data stored on our
-          servers is encrypted at rest, so (as long as your password is long
-          enough) you don't need to worry about your list of preferences being
-          revealed at any point.
+          . the readme contains a more thorough description of the exact privacy
+          protocol. feedback and pull requests are very welcome!
+        </p>
+        <h3 className="font-bold text-lg">about</h3>
+        <p className="m-2">
+          downto.xyz is inspired by the now-dead dildo.io. we believe that there
+          should be fewer taboos, more openness and more physical intimacy in
+          the world. while downto.xyz obviously isn't the end-all-be-all
+          solution to any of that, we hope that it can contribute to a more open
+          world, even if only by a tiny amount.
         </p>
         <p className="m-2">
-          if you have any thoughts, positive or critical, please don't hesitate
-          to email downto-board@mit.edu. it is very important to me that
-          downto.xyz is good for the world, not bad, and if you have any
-          concerns about anything, please let me know.
+          if you have any thoughts, positive or negative, email us at
+          downto-board@mit.edu. it is very important to us that downto.xyz is
+          good for the world, not bad, and if you have any concerns about
+          anything, please let us know.
         </p>
       </div>
     </footer>
