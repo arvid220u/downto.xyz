@@ -333,7 +333,7 @@ function Form(props: { targets: Targets }) {
   }, [email, targets]);
 
   return (
-    <div className="Send mb-4">
+    <div className="Send mb-4 mx-4">
       <div className="inputrow">
         <input
           type="email"
