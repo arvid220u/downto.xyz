@@ -154,6 +154,7 @@ function Form(props: { targets: Targets }) {
   const [key, setKey] = useState<CryptoKeyPair | null>(null);
   const [publicKey, setPublicKey] = useState("");
   const [password, setPassword] = useState("");
+  const [affirmation, setAffirmation] = useState(false);
   const [targets, setTargets] = useState(props.targets);
 
   useEffect(() => {
@@ -167,6 +168,12 @@ function Form(props: { targets: Targets }) {
     }
     if (!key || !key.privateKey) {
       alert("you need to either paste an old key or generate a new key!");
+      return;
+    }
+    if (!affirmation) {
+      alert(
+        "please indicate that you are honest and serious by clicking the checkbox."
+      );
       return;
     }
     console.log("update :0");
@@ -285,7 +292,17 @@ function Form(props: { targets: Targets }) {
     alert(
       "successfully updated preferences! check your email (and in particular your junk folder)"
     );
-  }, [email, password, targets, verified, verifiedKey]);
+  }, [
+    email,
+    password,
+    targets,
+    verified,
+    verifiedKey,
+    verifiedEmail,
+    affirmation,
+    publicKey,
+    key,
+  ]);
 
   const resetEmail = useCallback(() => {
     window.localStorage.removeItem("email");
@@ -388,6 +405,8 @@ function Form(props: { targets: Targets }) {
           className="w-3 h-3 border border-gray-300 rounded"
           type="checkbox"
           name="solemnlyswear"
+          checked={affirmation}
+          onClick={() => setAffirmation(!affirmation)}
         />{" "}
         <label htmlFor="solemnlyswear">
           i hereby declare that i am excited to do things with the people above,
