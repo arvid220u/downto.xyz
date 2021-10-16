@@ -177,17 +177,28 @@ function Form(props: { targets: Targets }) {
       return;
     }
     console.log("update :0");
-    const dtf = getEmails(targets[DTF]);
-    console.log(dtf);
+    let emailss: [string, string][] = [];
+    for (const typ in targets) {
+      emailss.push(
+        ...getEmails(targets[typ]).map((em) => {
+          return [typ, em];
+        })
+      );
+    }
+    console.log(emailss);
     // now get the sks for all of these
     const secrets = await post("/getsecrets", {
       sessionkey: verifiedKey,
       email: verifiedEmail,
-      emails: dtf,
+      emails: emailss.map((t) => {
+        return t[1];
+      }),
     });
     console.log(secrets);
     // ok great, now what?
-    const likes = await asyncFlatMap(dtf, async (em: string) => {
+    const likes = await asyncFlatMap(emailss, async (t: [string, string]) => {
+      const em = t[1];
+      const typ = t[0];
       if (!key.privateKey || !key.publicKey) {
         alert("somethingw rong");
         return [];
@@ -199,11 +210,12 @@ function Form(props: { targets: Targets }) {
         nonce: string;
         email0: string;
         email1: string;
+        type: string;
       }[] = [];
       for (const skkkkk of skss) {
         const email0 = em > verifiedEmail ? verifiedEmail : em;
         const email1 = email0 === em ? verifiedEmail : em;
-        const h = `${email0}${email1}`;
+        const h = `${typ}${email0}${email1}`;
         var enc = new TextEncoder();
         var dec = new TextDecoder();
         console.log(sks);
@@ -238,6 +250,7 @@ function Form(props: { targets: Targets }) {
             nonce: "fakenonce",
             email0,
             email1,
+            type: typ,
           });
           continue;
         }
@@ -254,6 +267,7 @@ function Form(props: { targets: Targets }) {
             nonce: "fakenonce",
             email0,
             email1,
+            type: typ,
           });
           continue;
         }
@@ -278,6 +292,7 @@ function Form(props: { targets: Targets }) {
           nonce: nonce_s,
           email0,
           email1,
+          type: typ,
         });
       }
       return ll;
@@ -310,6 +325,7 @@ function Form(props: { targets: Targets }) {
     setEmail("");
   }, []);
   const genKey = useCallback(async () => {
+    setPassword("...generating key...");
     alert("save this key! you need to use the same key every time");
     const result = await crypto.subtle.generateKey(
       {
@@ -333,30 +349,40 @@ function Form(props: { targets: Targets }) {
     const priv = await crypto.subtle.exportKey("pkcs8", result.privateKey);
     const priv_s = _arrayBufferToBase64(priv);
     console.log(priv_s);
-    setPassword(`${exp_s}!${priv_s}`);
+    let randVal = new Uint8Array(10);
+    randVal = crypto.getRandomValues(randVal);
+    const new_pass = `${_arrayBufferToBase64(randVal)}!${exp_s}!${priv_s}`;
+    setPassword(new_pass);
+    window.localStorage.setItem("keypair", new_pass);
   }, []);
   const updateKey = useCallback(
     async (newkey) => {
-      const [pub_s, priv_s] = newkey.split("!");
-      const pub_key = await crypto.subtle.importKey(
-        "spki",
-        _base64ToArrayBuffer(pub_s),
-        { name: "RSA-OAEP", hash: "SHA-256" },
-        true,
-        ["encrypt"]
-      );
-      const priv_key = await crypto.subtle.importKey(
-        "pkcs8",
-        _base64ToArrayBuffer(priv_s),
-        { name: "RSA-OAEP", hash: "SHA-256" },
-        true,
-        ["decrypt"]
-      );
-      setPassword(newkey);
-      setPublicKey(pub_s);
-      setKey({ privateKey: priv_key, publicKey: pub_key });
+      try {
+        setPassword(newkey);
+        const [_, pub_s, priv_s] = newkey.split("!");
+        const pub_key = await crypto.subtle.importKey(
+          "spki",
+          _base64ToArrayBuffer(pub_s),
+          { name: "RSA-OAEP", hash: "SHA-256" },
+          true,
+          ["encrypt"]
+        );
+        const priv_key = await crypto.subtle.importKey(
+          "pkcs8",
+          _base64ToArrayBuffer(priv_s),
+          { name: "RSA-OAEP", hash: "SHA-256" },
+          true,
+          ["decrypt"]
+        );
+        setPublicKey(pub_s);
+        setKey({ privateKey: priv_key, publicKey: pub_key });
+        window.localStorage.setItem("keypair", newkey);
+      } catch (e) {
+        setPassword(password);
+        alert(`invalid key: ${e}`);
+      }
     },
-    [password, key]
+    [password, key, setPassword, setPublicKey, setKey]
   );
   const verifyEmail = useCallback(async () => {
     if (!isMitEmail(email)) {
@@ -372,6 +398,13 @@ function Form(props: { targets: Targets }) {
       "check your email (including your junk folder) for a verification link!"
     );
   }, [email, targets]);
+
+  useEffect(() => {
+    const storedKey = window.localStorage.getItem("keypair");
+    if (storedKey !== password) {
+      updateKey(storedKey);
+    }
+  }, []);
 
   return (
     <div className="Send mb-4 mx-4">

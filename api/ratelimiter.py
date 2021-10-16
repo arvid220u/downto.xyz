@@ -10,13 +10,17 @@ class RateLimiter:
     def key(self):
         return "ratelimit:" + datetime.datetime.now().strftime("%Y%m%d") + ":" + self.identifier
 
-    def ok(self) -> bool:
+    def ok(self, user = None, limit = None) -> bool:
         # note that we may have race conditions here but issok
         # this does not need to be exact
-        count = self.db.get(self.key())
+        key = self.key()
+        if user is not None:
+            key += user
+        count = self.db.get(key)
         if count is None:
             count = 0
-        if count >= self.limit:
+        limit = self.limit if limit is None else limit
+        if count >= limit:
             return False
-        self.db.put(count + 1, self.key())
+        self.db.put(count + 1, key)
         return True

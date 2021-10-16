@@ -169,6 +169,7 @@ class Like(BaseModel):
     nonce: str
     email0: str
     email1: str
+    type: str
 
 
 class Update(BaseModel):
@@ -249,7 +250,7 @@ async def update(u: Update):
     if not authenticated(u.sessionkey, u.email):
         raise HTTPException(status_code=401, detail="Incorrect session key :(")
 
-    if not rl.ok():
+    if not rl.ok(user=u.email, limit=1):
         raise HTTPException(status_code=429, detail="Rate limited :(")
 
     print("in update")
@@ -277,7 +278,7 @@ async def update(u: Update):
             # omg yay
             # verify everything!!!
             m = hashlib.sha256()
-            m.update("".join([like.email0, like.email1]).encode("utf-8"))
+            m.update("".join([like.type, like.email0, like.email1]).encode("utf-8"))
             h = m.digest()
             try:
                 idbits = base64.b64decode(like.identifier)
@@ -312,7 +313,7 @@ async def update(u: Update):
                 (like.email0, like.email1),
                 (like.email1, like.email0),
             ]:
-                m = Match(to=email, w=other, type="DTF")
+                m = Match(to=email, w=other, type=like.type)
                 send_match(m)
 
     # 3. regenerate sk2 and vk2
