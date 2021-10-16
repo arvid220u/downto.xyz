@@ -198,6 +198,7 @@ function Form(props: { targets: Targets }) {
         const email1 = email0 === em ? verifiedEmail : em;
         const h = `${email0}${email1}`;
         var enc = new TextEncoder();
+        var dec = new TextDecoder();
         console.log(sks);
         const h_hash = await crypto.subtle.digest("SHA-256", enc.encode(h));
         console.log("HASH:");
@@ -221,7 +222,7 @@ function Form(props: { targets: Targets }) {
           );
           console.log("SKA AND NONCE:");
           console.log(sk_and_nonce);
-          sk_and_nonce_s = _arrayBufferToBase64(sk_and_nonce);
+          sk_and_nonce_s = dec.decode(sk_and_nonce);
         } catch (error) {
           console.log("ERROR (ignoring it).....");
           console.log(error);
@@ -241,12 +242,29 @@ function Form(props: { targets: Targets }) {
           alert("smth very wrong");
           console.log(h_hash);
           console.log(sk);
-          return [];
+          ll.push({
+            identifier: "fakeidentifier",
+            nonce: "fakenonce",
+            email0,
+            email1,
+          });
+          continue;
         }
+        console.log("SK");
+        console.log(dec.decode(sk));
+        console.log("H_HASH");
+        console.log(dec.decode(h_hash));
+        const sk_arr = new Uint8Array(sk);
+        const h_hash_arr = new Uint8Array(h_hash);
         const id1 = new Uint8Array(sk.byteLength);
         for (var i = 0; i < id1.length; i++) {
-          id1[i] = sk[i] ^ h_hash[i];
+          id1[i] = sk_arr[i] ^ h_hash_arr[i];
+          console.log(
+            `sk[${i}] = ${sk[i]}, h_hash[]=${h_hash[i]}, id1[]=${id1[i]}`
+          );
         }
+        console.log("id1");
+        console.log(dec.decode(id1));
         const id1_s = _arrayBufferToBase64(id1);
         ll.push({
           identifier: id1_s,

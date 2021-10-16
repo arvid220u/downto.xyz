@@ -251,6 +251,8 @@ async def update(u: Update):
     if not rl.ok():
         raise HTTPException(status_code=429, detail="Rate limited :(")
 
+    print("in update")
+
     # 1. update public key
     q = f"REPLACE INTO users (email, pk) VALUES ('{u.email}', '{u.publickey}')"
     await db.execute(query=q)
@@ -284,15 +286,22 @@ async def update(u: Update):
             sk = bytes(a ^ b for (a, b) in zip(h, idbits))
             sk_s = base64.b64encode(sk).decode("utf-8")
             # now append the nonce
-            sk_and_nonce = sk_s + like.nonce
+            sk_and_nonce = sk_s + "!" + like.nonce
             # now evaluate the OWF and check verification key
             vk_m = hashlib.sha256()
             vk_m.update(sk_and_nonce.encode('utf-8'))
-            vk_challenge = base64.b64encode(vk_m.digest())
+            vk_challenge = base64.b64encode(vk_m.digest()).decode("utf-8")
             # get real vk
-            q = f"SELECT vk FROM secrets WHERE (email1, email2) = ('{like.email0}', '{like.email1}')"
+            q = f"SELECT vk1, vk2 FROM secrets WHERE (email1, email2) = ('{like.email0}', '{like.email1}')"
             vk_real = await db.fetch_all(query=q)
-            if vk_real != vk_challenge:
+            if len(vk_real)  == 0:
+                raise HTTPException(
+                    status_code=400, detail="must request secrets for all updated emails!!"
+                )
+            vk_set = set(vk_real[0])
+            print(f"VK_REAL: {vk_set}")
+            print(f"vk_challenge: {vk_challenge}")
+            if vk_challenge not in vk_set:
                 # sad. someone tried to cheat
                 raise HTTPException(
                     status_code=400, detail="Incorrect verification key...."
@@ -302,10 +311,7 @@ async def update(u: Update):
                 (like.email0, like.email1),
                 (like.email1, like.email0),
             ]:
-                m = Match()
-                m.to = email
-                m.w = other
-                m.type = "DTF"
+                m = Match(to=email, w=other, type="DTF")
                 send_match(m)
 
     # 3. regenerate sk2 and vk2
@@ -332,11 +338,15 @@ async def update(u: Update):
 
             recipient_key = RSA.import_key(pk)
             cipher_rsa = PKCS1_OAEP.new(recipient_key, SHA256)
-            enc = cipher_rsa.encrypt(base64.b64encode(sk_and_nonce.encode("utf-8")))
+            # encrypttt = base64.b64encode(sk_and_nonce.encode("utf-8"))
+            encrypttt = sk_and_nonce.encode("utf-8")
+            enc = cipher_rsa.encrypt(encrypttt)
             new_sk = base64.b64encode(enc).decode('utf-8')
             print(new_sk)
             print("ENC::::")
             print(base64.b64encode(sk_and_nonce.encode("utf-8")))
+            print("SK_AND_NONCE::::")
+            print(sk_and_nonce)
 
 
             q = f"SELECT sk2, vk2 FROM secrets WHERE (email1, email2) = ('{em1}', '{em2}')"
