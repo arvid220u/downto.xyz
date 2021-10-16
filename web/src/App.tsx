@@ -333,8 +333,31 @@ function Form(props: { targets: Targets }) {
     const priv = await crypto.subtle.exportKey("pkcs8", result.privateKey);
     const priv_s = _arrayBufferToBase64(priv);
     console.log(priv_s);
-    setPassword(`${exp_s}${priv_s}`);
+    setPassword(`${exp_s}!${priv_s}`);
   }, []);
+  const updateKey = useCallback(
+    async (newkey) => {
+      const [pub_s, priv_s] = newkey.split("!");
+      const pub_key = await crypto.subtle.importKey(
+        "spki",
+        _base64ToArrayBuffer(pub_s),
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        true,
+        ["encrypt"]
+      );
+      const priv_key = await crypto.subtle.importKey(
+        "pkcs8",
+        _base64ToArrayBuffer(priv_s),
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        true,
+        ["decrypt"]
+      );
+      setPassword(newkey);
+      setPublicKey(pub_s);
+      setKey({ privateKey: priv_key, publicKey: pub_key });
+    },
+    [password, key]
+  );
   const verifyEmail = useCallback(async () => {
     if (!isMitEmail(email)) {
       alert("you need to send from an mit.edu email address!");
@@ -369,7 +392,7 @@ function Form(props: { targets: Targets }) {
           type="text"
           value={password}
           placeholder="paste old key here, or generate new "
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => updateKey(e.target.value)}
         />
         <button onClick={genKey}>generate</button>
       </div>
