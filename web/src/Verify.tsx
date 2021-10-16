@@ -1,7 +1,8 @@
 import { navigate, Redirect, redirectTo } from "@gatsbyjs/reach-router";
 import { useCallback, useRef, useEffect, useState } from "react";
+import { RouteComponentProps } from "@gatsbyjs/reach-router";
 
-function Verify() {
+function Verify(props: RouteComponentProps) {
   useEffect(() => {
     const search = window.location.search;
     const params = new URLSearchParams(search);
@@ -14,10 +15,9 @@ function Verify() {
     window.localStorage.setItem("email", email || "");
     window.localStorage.setItem("key", key || "");
     navigate(
-      `/?dtf=${dtf ? encodeURIComponent(dtf) : ""}
-      &dtc=${dtc ? encodeURIComponent(dtc) : ""}
-      &dtd=${dtd ? encodeURIComponent(dtd) : ""}
-      `
+      `/?dtf=${dtf ? encodeURIComponent(dtf) : ""}&dtc=${
+        dtc ? encodeURIComponent(dtc) : ""
+      }&dtd=${dtd ? encodeURIComponent(dtd) : ""}`
     );
   }, []);
   return <div>Redirecting...</div>;

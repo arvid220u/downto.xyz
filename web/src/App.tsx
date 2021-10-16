@@ -1,6 +1,25 @@
 import { useCallback, useRef, useEffect, useState } from "react";
 import { RouteComponentProps } from "@gatsbyjs/reach-router";
 import "./App.css";
+import { createSecretKey } from "crypto";
+async function asyncFlatMap<T, O>(
+  arr: T[],
+  asyncFn: (t: T) => Promise<O[]>
+): Promise<O[]> {
+  return Promise.all(flatten(await asyncMap(arr, asyncFn)));
+}
+
+function flatMap<T, O>(arr: T[], fn: (t: T) => O[]): O[] {
+  return flatten(arr.map(fn));
+}
+
+function asyncMap<T, O>(arr: T[], asyncFn: (t: T) => Promise<O>): Promise<O[]> {
+  return Promise.all(arr.map(asyncFn));
+}
+
+function flatten<T>(arr: T[][]): T[] {
+  return ([] as T[]).concat(...arr);
+}
 
 const DTF = "DTF";
 const DTC = "DTC";
@@ -11,6 +30,26 @@ const MATCH_EXPLANATIONS = {
   [DTC]: "(cuddle)",
   [DTD]: "(date)",
 };
+
+function _arrayBufferToBase64(buffer) {
+  var binary = "";
+  var bytes = new Uint8Array(buffer);
+  var len = bytes.byteLength;
+  for (var i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
+function _base64ToArrayBuffer(base64) {
+  var binary_string = window.atob(base64);
+  var len = binary_string.length;
+  var bytes = new Uint8Array(len);
+  for (var i = 0; i < len; i++) {
+    bytes[i] = binary_string.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
 
 function Footer() {
   return (
@@ -24,15 +63,14 @@ function Footer() {
         </p>
         <h3 className="font-bold text-lg">privacy</h3>
         <p className="m-2">
-          the data stored on our servers is encrypted using your password, so
-          (as long as your password is long enough) you don't need to worry
-          about your list of preferences being revealed at any point (assuming
-          you trust somewhat rushed unaudited untested code). information is
-          only revealed in the event of a match. a slightly unfortunate side
-          effect of this, and the fact that MIT does not have a public key
-          directory, is that a match will not be detected if person A enters
-          their prefererence for B before B has verified their email, until
-          person A comes back to this page and updates.
+          the data stored on our servers is encrypted, so you don't need to
+          worry about your list of preferences being revealed at any point
+          (assuming you trust somewhat rushed unaudited untested code).
+          information is only revealed in the event of a match. a slightly
+          unfortunate side effect of this, and the fact that MIT does not have a
+          public key directory, is that a match will not be detected if person A
+          enters their preferences for B before B has verified their email,
+          until person A comes back to this page and updates.
         </p>
         <p className="m-2">
           the source code is available at{" "}
@@ -84,7 +122,7 @@ async function post(path = "", data = {}) {
 }
 
 function getEmails(s) {
-  const rgx = /(\S+@\S+\.\S+)/gm;
+  const rgx = /([^,\s@]+@\w+\.\w+)/gm;
   const match = s.match(rgx);
   if (!match) {
     return [];
@@ -113,6 +151,8 @@ function Form(props: { targets: Targets }) {
   const verified = verifiedEmail != null && verifiedKey != null;
 
   const [email, setEmail] = useState(verified ? verifiedEmail : "");
+  const [key, setKey] = useState<CryptoKeyPair | null>(null);
+  const [publicKey, setPublicKey] = useState("");
   const [password, setPassword] = useState("");
   const [targets, setTargets] = useState(props.targets);
 
@@ -120,12 +160,111 @@ function Form(props: { targets: Targets }) {
     setTargets(props.targets);
   }, [props.targets]);
 
-  const update = useCallback(() => {
+  const update = useCallback(async () => {
     if (!verified) {
       alert("you must verify your email first!");
       return;
     }
-    // const to = getEmails();
+    if (!key || !key.privateKey) {
+      alert("you need to either paste an old key or generate a new key!");
+      return;
+    }
+    console.log("update :0");
+    const dtf = getEmails(targets[DTF]);
+    console.log(dtf);
+    // now get the sks for all of these
+    const secrets = await post("/getsecrets", {
+      sessionkey: verifiedKey,
+      email: verifiedEmail,
+      emails: dtf,
+    });
+    console.log(secrets);
+    // ok great, now what?
+    const likes = await asyncFlatMap(dtf, async (em: string) => {
+      if (!key.privateKey || !key.publicKey) {
+        alert("somethingw rong");
+        return [];
+      }
+      const sks = secrets[em];
+      const skss = [sks["sk1"], sks["sk2"]];
+      let ll: {
+        identifier: string;
+        nonce: string;
+        email0: string;
+        email1: string;
+      }[] = [];
+      for (const skkkkk of skss) {
+        const email0 = em > verifiedEmail ? verifiedEmail : em;
+        const email1 = email0 === em ? verifiedEmail : em;
+        const h = `${email0}${email1}`;
+        var enc = new TextEncoder();
+        console.log(sks);
+        const h_hash = await crypto.subtle.digest("SHA-256", enc.encode(h));
+        console.log("HASH:");
+        console.log(h_hash);
+        let sk_and_nonce_s = "";
+        try {
+          console.log("encrypted SK:");
+          console.log(skkkkk);
+          console.log("public key: ");
+          console.log(
+            _arrayBufferToBase64(
+              await crypto.subtle.exportKey("spki", key.publicKey)
+            )
+          );
+          const sk_and_nonce = await crypto.subtle.decrypt(
+            {
+              name: "RSA-OAEP",
+            },
+            key.privateKey,
+            _base64ToArrayBuffer(skkkkk)
+          );
+          console.log("SKA AND NONCE:");
+          console.log(sk_and_nonce);
+          sk_and_nonce_s = _arrayBufferToBase64(sk_and_nonce);
+        } catch (error) {
+          console.log("ERROR (ignoring it).....");
+          console.log(error);
+          ll.push({
+            identifier: "fakeidentifier",
+            nonce: "fakenonce",
+            email0,
+            email1,
+          });
+          continue;
+        }
+        console.log("SK AND NONCE S: ");
+        console.log(sk_and_nonce_s);
+        const [sk_s, nonce_s] = sk_and_nonce_s.split("!");
+        const sk = _base64ToArrayBuffer(sk_s);
+        if (h_hash.byteLength !== sk.byteLength) {
+          alert("smth very wrong");
+          console.log(h_hash);
+          console.log(sk);
+          return [];
+        }
+        const id1 = new Uint8Array(sk.byteLength);
+        for (var i = 0; i < id1.length; i++) {
+          id1[i] = sk[i] ^ h_hash[i];
+        }
+        const id1_s = _arrayBufferToBase64(id1);
+        ll.push({
+          identifier: id1_s,
+          nonce: nonce_s,
+          email0,
+          email1,
+        });
+      }
+      return ll;
+    });
+    console.log(likes);
+    post("/update", {
+      sessionkey: verifiedKey,
+      email: verifiedEmail,
+      publickey: publicKey,
+      likes: likes,
+    });
+
     // if (to.length === 0) {
     //   alert(
     //     "you need to send to at least 1 friend! no email address recognized"
@@ -154,7 +293,33 @@ function Form(props: { targets: Targets }) {
     window.localStorage.removeItem("key");
     setEmail("");
   }, []);
-  const verifyEmail = useCallback(() => {
+  const genKey = useCallback(async () => {
+    alert("save this key! you need to use the same key every time");
+    const result = await crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 4096,
+        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+        hash: "SHA-256",
+      },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    setKey(result);
+    if (!result.publicKey || !result.privateKey) {
+      alert("error :(");
+      return;
+    }
+    const exp = await crypto.subtle.exportKey("spki", result.publicKey);
+    const exp_s = _arrayBufferToBase64(exp);
+    setPublicKey(exp_s);
+    console.log(exp_s);
+    const priv = await crypto.subtle.exportKey("pkcs8", result.privateKey);
+    const priv_s = _arrayBufferToBase64(priv);
+    console.log(priv_s);
+    setPassword(`${exp_s}${priv_s}`);
+  }, []);
+  const verifyEmail = useCallback(async () => {
     if (!isMitEmail(email)) {
       alert("you need to send from an mit.edu email address!");
       return;
@@ -181,28 +346,36 @@ function Form(props: { targets: Targets }) {
           {verified ? "change" : "verify"}
         </button>
       </div>
-      <input
-        type="password"
-        value={password}
-        placeholder="password"
-        onChange={(e) => setPassword(e.target.value)}
-      />
+      <div className="inputrow">
+        <input
+          type="text"
+          value={password}
+          placeholder="paste old key here, or generate new "
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button onClick={genKey}>generate</button>
+      </div>
       {MATCH_TYPES.map((type) => {
         return (
-          <div className="inputrow">
-            <div className="my-auto mx-auto mr-2 w-20">
-              <span className="font-bold text-lg">{type}:</span>
-              <br />
-              <span className="text-xs">{MATCH_EXPLANATIONS[type]}</span>
+          <div className="inputrow" key={`${type}1`}>
+            <div className="my-auto mx-auto mr-2 w-20" key={`${type}2`}>
+              <span className="font-bold text-lg" key={`${type}3`}>
+                {type}:
+              </span>
+              <br key={`${type}4`} />
+              <span key={`${type}5`} className="text-xs">
+                {MATCH_EXPLANATIONS[type]}
+              </span>
             </div>
             <textarea
+              key={`${type}6`}
               className="inputrow"
               placeholder="friend@mit.edu, friend2@mit.edu"
               value={targets[type]}
               onChange={(e) =>
                 setTargets({
-                  [type]: e.target.value,
                   ...targets,
+                  [type]: e.target.value,
                 })
               }
             />

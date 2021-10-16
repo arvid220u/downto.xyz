@@ -1,9 +1,11 @@
 import base64
 import pytz
+import binascii
 from datetime import datetime
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.Hash import SHA256
 import hashlib
 import jwt
 from ratelimiter import RateLimiter
@@ -20,7 +22,7 @@ from dotenv import load_dotenv
 import urllib.parse
 from databases import Database
 
-RATE_LIMIT = 100
+RATE_LIMIT = 1000000
 EMAIL_PATH = "simpleemail.html"
 DATABASE_PATH = "test.db"
 
@@ -79,7 +81,7 @@ def is_mit_email(m):
 
 def authenticated(sessionkey: str, email: str):
     try:
-        decoded = jwt.decode(sessionkey, "secret", algorithms=["HS256"])
+        decoded = jwt.decode(sessionkey, SECRET_KEY, algorithms=["HS256"])
         if "email" not in decoded:
             return False
         if decoded["email"] != email:
@@ -118,9 +120,10 @@ Please go to this link: https://downto.xyz/verify?u={urllib.parse.quote(v.email)
 
 have fun :)
 """
-        smtp.starttls()
-        smtp.login(SMTP_LOGIN, SMTP_LOGIN)
-        smtp.sendmail(sender, receivers, message)
+        print(message)
+        # smtp.starttls()
+        # smtp.login(SMTP_LOGIN, SMTP_LOGIN)
+        # smtp.sendmail(sender, receivers, message)
 
     return "OK"
 
@@ -137,6 +140,9 @@ def kerbify(s: str):
 
 def send_match(m: Match):
 
+    print("MATCH!!!!")
+    print(m)
+
     if not rl.ok():
         raise HTTPException(status_code=429, detail="Rate limited :(")
 
@@ -151,9 +157,10 @@ X-PM-Message-Stream: broadcast
 """ + emailTemp.get(
             m.to, m.w, m.type
         )
-        smtp.starttls()
-        smtp.login(SMTP_LOGIN, SMTP_LOGIN)
-        smtp.sendmail(sender, receivers, message)
+        # smtp.starttls()
+        # smtp.login(SMTP_LOGIN, SMTP_LOGIN)
+        # smtp.sendmail(sender, receivers, message)
+        print(message)
 
 
 class Like(BaseModel):
@@ -184,17 +191,57 @@ async def getsecrets(g: GetSecrets):
     if not rl.ok():
         raise HTTPException(status_code=429, detail="Rate limited :(")
 
+    q = f"SELECT pk FROM users WHERE email = '{g.email}'"
+    pk = await db.fetch_all(query=q)
+    if len(pk) == 0:
+        # generate a fake public key for this email!
+        await gen_fake_db_entry(g.email)
+
     ans = {}
 
+    print("HELLO HELLO xxx")
+
     for email in g.emails:
-        q = f"SELECT pk FROM users WHERE email = {email}"
+        if email == g.email:
+            raise HTTPException(status_code=400, detail="cannot like yourself ://")
+        q = f"SELECT pk FROM users WHERE email = '{email}'"
         pk = await db.fetch_all(query=q)
-        q = f"SELECT sk1, sk2 FROM secrets WHERE (email1, email2) = ({g.email, email})"
-        sk1, sk2 = await db.fetch_all(query=q)
-        ans.append({"email": email, "pk": pk, "sk1": sk1, "sk2": sk2})
+        print("HELLO HELLO")
+        if len(pk) == 0:
+            # generate a fake public key for this email!
+            await gen_fake_db_entry(email)
+            # now retry!
+            q = f"SELECT pk FROM users WHERE email = '{email}'"
+            pk = await db.fetch_all(query=q)
+            assert len(pk) > 0
+        pk = pk[0][0]
+        q = f"SELECT sk1, sk2 FROM secrets WHERE (email1, email2) = ('{g.email}', '{email}')"
+        sk1, sk2 = await db.fetch_one(query=q)
+        ans[email] = {"pk": pk, "sk1": sk1, "sk2": sk2}
+
+    print(ans)
 
     return ans
 
+async def gen_fake_db_entry(email: str):
+    print(f"generating fake db entry for {email}")
+    #TODO: make this fake pk random
+    fake_pk = "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvmGJXQpUwhl0C/AqcnYIymDfEfdc21B7kgDtOGsf1vrLELTpY+Do1vZQyIeV/yDuQvzqHhJOv78h/DTUqAaogMtmH/3grc7OZk7kr3N0vAcx7z3KiGByyCaO7Fihr4ZZA2Fqm+/WvwSz2rVPvxcGw2k7CBFAjJ2ZpF91bmqZtycs0RbluDwxDNc/eUEeaLrDKlYdKy8a1mdW2d6KahxuPBdR7qTBbVVYtK+FGPW9LGCZ6Ck9+jhmV388lkzV8gwbcxYvL0RGT5XIQTv5w8oIHLk9WoU/1VUSn27nGiDszsilxaXgzKQFTEIHw3xxtiw/lHW8FQCHcb46HWIjRTMpYz3ChWqvqOXJttdJNqfBawnGZ3IdZUCO6FyaP0gW78Wocs99qp5DpvcI58MsBqIdeYQ4mtOshmRhQE30ezxDaWKQ7KD/b228V49vO2viYxWfuaVRUzOYtrjU5fiA0oKwsrhyPsIDjG1JmZVjo7sSIrIVpE9nfvvyjYZc755x6FlTcMq5DeoUxCqP71cQy/noHhe2aPHEFk+5cKvnicnLgf9PCxV6H0krgjs54jH0jk8ciukkERvwcTyC9b/c6O3oUmBnlQzePYIGszRHqWsYpBj/EsobqscwxPQ56Z8kg+dS5Lbgso7v3bdpJqceAtpr3vlj0OemGHgwqdvmgaYy+wsCAwEAAQ=="
+    q = f"INSERT INTO users (email, pk) VALUES ('{email}', '{fake_pk}')"
+    await db.execute(query=q)
+    q = f"SELECT email FROM users"
+    emails = await db.fetch_all(query=q)
+    print(emails)
+    for em in emails:
+        em = em[0]
+        if em == email:
+            continue
+        fake_sk = "fakesk"
+        fake_vk = "fakevk"
+        q = f"INSERT INTO secrets (email1, email2, sk1, sk2, vk1, vk2) VALUES ('{email}', '{em}', '{fake_sk}', '{fake_sk}', '{fake_vk}', '{fake_vk}')"
+        await db.execute(query=q)
+        q = f"INSERT INTO secrets (email1, email2, sk1, sk2, vk1, vk2) VALUES ('{em}', '{email}', '{fake_sk}', '{fake_sk}', '{fake_vk}', '{fake_vk}')"
+        await db.execute(query=q)
 
 @app.post("/update")
 async def update(u: Update):
@@ -205,7 +252,7 @@ async def update(u: Update):
         raise HTTPException(status_code=429, detail="Rate limited :(")
 
     # 1. update public key
-    q = f"INSERT INTO users (email, publickey) VALUES ({u.email}, {u.publickey})"
+    q = f"REPLACE INTO users (email, pk) VALUES ('{u.email}', '{u.publickey}')"
     await db.execute(query=q)
 
     # 2. check if match
@@ -216,12 +263,12 @@ async def update(u: Update):
             )
         submitter = 0 if u.email == like.email0 else 1
         anti_submitter = 1 - submitter
-        q = f"SELECT * FROM likes WHERE (identifier, submitter) = ({like.identifier, anti_submitter})"
+        q = f"SELECT * FROM likes WHERE (identifier, submitter) = ('{like.identifier}', '{anti_submitter}')"
         match = await db.fetch_all(query=q)
         print(match)
         if len(match) == 0:
             # sad :(
-            q = f"INSERT INTO likes (identifier, submitter) VALUES ({like.identifier}, {submitter})"
+            q = f"REPLACE INTO likes (identifier, submitter) VALUES ('{like.identifier}', '{submitter}')"
             await db.execute(q)
         else:
             # omg yay
@@ -229,17 +276,21 @@ async def update(u: Update):
             m = hashlib.sha256()
             m.update("".join([like.email0, like.email1]).encode("utf-8"))
             h = m.digest()
-            idbits = base64.b64decode(like.identifier)
+            try:
+                idbits = base64.b64decode(like.identifier)
+            except binascii.Error as e:
+                print(e)
+                continue
             sk = bytes(a ^ b for (a, b) in zip(h, idbits))
             sk_s = base64.b64encode(sk).decode("utf-8")
             # now append the nonce
             sk_and_nonce = sk_s + like.nonce
             # now evaluate the OWF and check verification key
             vk_m = hashlib.sha256()
-            vk_m.update(sk_and_nonce)
+            vk_m.update(sk_and_nonce.encode('utf-8'))
             vk_challenge = base64.b64encode(vk_m.digest())
             # get real vk
-            q = f"SELECT vk FROM secrets WHERE (email1, email2) = ({like.email0, like.email1})"
+            q = f"SELECT vk FROM secrets WHERE (email1, email2) = ('{like.email0}', '{like.email1}')"
             vk_real = await db.fetch_all(query=q)
             if vk_real != vk_challenge:
                 # sad. someone tried to cheat
@@ -247,7 +298,10 @@ async def update(u: Update):
                     status_code=400, detail="Incorrect verification key...."
                 )
             # omg an actual match!
-            for email, other in [(like.email0, like.email1), (like.email1, like.email0)]:
+            for email, other in [
+                (like.email0, like.email1),
+                (like.email1, like.email0),
+            ]:
                 m = Match()
                 m.to = email
                 m.w = other
@@ -259,35 +313,50 @@ async def update(u: Update):
     for email in emails:
         sk2 = get_random_bytes(32)
         nonce = get_random_bytes(32)
-        sk_and_nonce = base64.b64encode(sk2).decode("utf-8") + base64.b64encode(
+        sk_and_nonce = base64.b64encode(sk2).decode("utf-8") + "!" + base64.b64encode(
             nonce
         ).decode("utf-8")
         vk_m = hashlib.sha256()
-        vk_m.update(sk_and_nonce)
-        vk = base64.b64encode(vk_m.digest())
+        vk_m.update(sk_and_nonce.encode('utf-8'))
+        new_vk = base64.b64encode(vk_m.digest()).decode('utf-8')
 
         for [em1, em2] in [[email, u.email], [u.email, email]]:
-            q = f"SELECT pk FROM users WHERE email = {em1}"
-            pk = await db.fetch_all(q)
+            q = f"SELECT pk FROM users WHERE email = '{em1}'"
+            pk_s = await db.fetch_all(q)
+            if len(pk_s) == 0:
+                raise HTTPException(
+                    status_code=400, detail="must request secrets for all updated emails!!"
+                )
+            pk_s = pk_s[0][0]
+            pk = base64.b64decode(pk_s.encode("utf-8"))
 
             recipient_key = RSA.import_key(pk)
-            cipher_rsa = PKCS1_OAEP.new(recipient_key)
-            enc = cipher_rsa.encrypt(sk_and_nonce.encode("utf-8"))
+            cipher_rsa = PKCS1_OAEP.new(recipient_key, SHA256)
+            enc = cipher_rsa.encrypt(base64.b64encode(sk_and_nonce.encode("utf-8")))
+            new_sk = base64.b64encode(enc).decode('utf-8')
+            print(new_sk)
+            print("ENC::::")
+            print(base64.b64encode(sk_and_nonce.encode("utf-8")))
 
-            q = f"SELECT sk2, vk2 FROM secrets WHERE (email1, email2) = ({em1, em2})"
-            sk2, vk2 = await db.fetch_all(q)
-            q = f"INSERT INTO secrets (sk1, vk1) VALUES ({sk2, vk2})"
+
+            q = f"SELECT sk2, vk2 FROM secrets WHERE (email1, email2) = ('{em1}', '{em2}')"
+            sks = await db.fetch_all(q)
+            if len(sks) == 0:
+                raise HTTPException(
+                    status_code=400, detail="must request secrets for all updated emails!!"
+                )
+            sk2, vk2 = sks[0]
+            q = f"REPLACE INTO secrets (email1, email2, sk1, sk2, vk1, vk2) VALUES ('{em1}', '{em2}', '{sk2}', '{new_sk}', '{vk2}', '{new_vk}')"
+            print(q)
             await db.execute(q)
-            q = f"INSERT INTO secrets (sk2, vk2) VALUES ({enc, vk})"
 
 
 @app.post("/test")
 async def fetch_data(email: str):
-    query = f"SELECT * FROM users WHERE email={email}"
+    query = f"SELECT * FROM users WHERE email='{email}'"
     results = await db.fetch_all(query=query)
 
     return results
-
 
 async def init_db():
     with open("schema.sql", "r") as f:
