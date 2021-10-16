@@ -1,15 +1,14 @@
 import datetime
-import http.client
-import time
 
 
 class RateLimiter:
-    def __init__(self, db, limit: int):
+    def __init__(self, db, limit: int, identifier: str):
         self.db = db
         self.limit = limit
+        self.identifier = identifier
 
     def key(self):
-        return "ratelimit:" + datetime.datetime.now().strftime("%Y%m%d")
+        return "ratelimit:" + datetime.datetime.now().strftime("%Y%m%d") + ":" + self.identifier
 
     def ok(self) -> bool:
         # note that we may have race conditions here but issok

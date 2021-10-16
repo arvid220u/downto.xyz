@@ -282,28 +282,9 @@ function Form(props: { targets: Targets }) {
       publickey: publicKey,
       likes: likes,
     });
-
-    // if (to.length === 0) {
-    //   alert(
-    //     "you need to send to at least 1 friend! no email address recognized"
-    //   );
-    //   return;
-    // }
-    // const d = {
-    //   fr: email,
-    //   to,
-    //   key: verifiedKey,
-    // };
-    // post("/send", send);
-    // window.history.replaceState(
-    //   {},
-    //   document.title,
-    //   window.location.pathname +
-    //     `?to=${encodeURIComponent(to.join(","))}&m=${encodeURIComponent(
-    //       formattedMessage
-    //     )}`
-    // );
-    // sent();
+    alert(
+      "successfully updated preferences! check your email (and in particular your junk folder)"
+    );
   }, [email, password, targets, verified, verifiedKey]);
 
   const resetEmail = useCallback(() => {
@@ -347,7 +328,9 @@ function Form(props: { targets: Targets }) {
       targets,
     };
     post("/verify", v);
-    alert("check your email for a verification link!");
+    alert(
+      "check your email (including your junk folder) for a verification link!"
+    );
   }, [email, targets]);
 
   return (

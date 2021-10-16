@@ -22,7 +22,8 @@ from dotenv import load_dotenv
 import urllib.parse
 from databases import Database
 
-RATE_LIMIT = 1000000
+RATE_LIMIT_REQUESTS_PER_DAY = 10_000
+RATE_LIMIT_EMAILS_PER_DAY = 100
 EMAIL_PATH = "simpleemail.html"
 DATABASE_PATH = "test.db"
 
@@ -42,7 +43,8 @@ fdb = FakeDB()
 
 app = FastAPI()
 
-rl = RateLimiter(fdb, RATE_LIMIT)
+rl = RateLimiter(fdb, RATE_LIMIT_REQUESTS_PER_DAY, "requests")
+rl_email = RateLimiter(fdb, RATE_LIMIT_EMAILS_PER_DAY, "emails")
 emailTemp = emailtemplater.Email(EMAIL_PATH)
 
 origins = ["http://localhost", "http://localhost:3000", "https://downto.xyz"]
@@ -72,7 +74,7 @@ class Verify(BaseModel):
 
 
 def is_mit_email(m):
-    rgx = r"[a-z0-9_]+@mit\.edu"
+    rgx = r"[a-z0-9_-]+@mit\.edu"
     if re.match(rgx, m) is None:
         return False
     else:
@@ -95,7 +97,7 @@ def authenticated(sessionkey: str, email: str):
 def verify(v: Verify):
 
     if not is_mit_email(v.email):
-        return HTTPException(
+        raise HTTPException(
             status_code=403, detail="Only MIT emails allowed at the moment."
         )
 
@@ -120,10 +122,9 @@ Please go to this link: https://downto.xyz/verify?u={urllib.parse.quote(v.email)
 
 have fun :)
 """
-        print(message)
-        # smtp.starttls()
-        # smtp.login(SMTP_LOGIN, SMTP_LOGIN)
-        # smtp.sendmail(sender, receivers, message)
+        smtp.starttls()
+        smtp.login(SMTP_LOGIN, SMTP_LOGIN)
+        smtp.sendmail(sender, receivers, message)
 
     return "OK"
 
@@ -143,13 +144,14 @@ def send_match(m: Match):
     print("MATCH!!!!")
     print(m)
 
-    if not rl.ok():
+    if not rl_email.ok():
         raise HTTPException(status_code=429, detail="Rate limited :(")
 
     with smtplib.SMTP(host="smtp-broadcasts.postmarkapp.com", port=25) as smtp:
         sender = "hi@downto.xyz"
         receivers = [m.to]
         message = f"""From: downto.xyz <{sender}>
+To: {m.to}
 Subject: you matched with {kerbify(m.w)}!
 Content-Type: text/html
 X-PM-Message-Stream: broadcast
@@ -157,10 +159,9 @@ X-PM-Message-Stream: broadcast
 """ + emailTemp.get(
             m.to, m.w, m.type
         )
-        # smtp.starttls()
-        # smtp.login(SMTP_LOGIN, SMTP_LOGIN)
-        # smtp.sendmail(sender, receivers, message)
-        print(message)
+        smtp.starttls()
+        smtp.login(SMTP_LOGIN, SMTP_LOGIN)
+        smtp.sendmail(sender, receivers, message)
 
 
 class Like(BaseModel):
@@ -359,14 +360,6 @@ async def update(u: Update):
             q = f"REPLACE INTO secrets (email1, email2, sk1, sk2, vk1, vk2) VALUES ('{em1}', '{em2}', '{sk2}', '{new_sk}', '{vk2}', '{new_vk}')"
             print(q)
             await db.execute(q)
-
-
-@app.post("/test")
-async def fetch_data(email: str):
-    query = f"SELECT * FROM users WHERE email='{email}'"
-    results = await db.fetch_all(query=query)
-
-    return results
 
 async def init_db():
     with open("schema.sql", "r") as f:
