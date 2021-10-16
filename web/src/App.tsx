@@ -405,7 +405,7 @@ function Form(props: { targets: Targets }) {
 
   useEffect(() => {
     const storedKey = window.localStorage.getItem("keypair");
-    if (storedKey !== password) {
+    if (storedKey && storedKey !== password) {
       updateKey(storedKey);
     }
   }, []);
