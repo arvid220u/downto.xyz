@@ -187,14 +187,16 @@ function Form(props: { targets: Targets }) {
     }
     console.log(emailss);
     // now get the sks for all of these
-    const secrets = await post("/getsecrets", {
-      sessionkey: verifiedKey,
-      email: verifiedEmail,
-      emails: emailss.map((t) => {
-        return t[1];
-      }),
-    });
-    console.log(secrets.json());
+    const secrets = (
+      await post("/getsecrets", {
+        sessionkey: verifiedKey,
+        email: verifiedEmail,
+        emails: emailss.map((t) => {
+          return t[1];
+        }),
+      })
+    ).json();
+    console.log(secrets);
     // ok great, now what?
     const likes = await asyncFlatMap(emailss, async (t: [string, string]) => {
       const em = t[1];
@@ -203,7 +205,7 @@ function Form(props: { targets: Targets }) {
         alert("somethingw rong");
         return [];
       }
-      const sks = secrets.json()[em];
+      const sks = secrets[em];
       const skss = [sks["sk1"], sks["sk2"]];
       let ll: {
         identifier: string;
