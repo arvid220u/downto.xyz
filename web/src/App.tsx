@@ -187,7 +187,7 @@ function Form(props: { targets: Targets }) {
     }
     console.log(emailss);
     // now get the sks for all of these
-    const secrets = (
+    const secrets = await (
       await post("/getsecrets", {
         sessionkey: verifiedKey,
         email: verifiedEmail,
