@@ -118,7 +118,7 @@ async function post(path = "", data = {}) {
     body: JSON.stringify(data), // body data type must match "Content-Type" header
   });
   console.log(response);
-  return response.json(); // parses JSON response into native JavaScript objects
+  return response; // parses JSON response into native JavaScript objects
 }
 
 function getEmails(s) {
@@ -194,7 +194,7 @@ function Form(props: { targets: Targets }) {
         return t[1];
       }),
     });
-    console.log(secrets);
+    console.log(secrets.json());
     // ok great, now what?
     const likes = await asyncFlatMap(emailss, async (t: [string, string]) => {
       const em = t[1];
@@ -203,7 +203,7 @@ function Form(props: { targets: Targets }) {
         alert("somethingw rong");
         return [];
       }
-      const sks = secrets[em];
+      const sks = secrets.json()[em];
       const skss = [sks["sk1"], sks["sk2"]];
       let ll: {
         identifier: string;
@@ -298,15 +298,19 @@ function Form(props: { targets: Targets }) {
       return ll;
     });
     console.log(likes);
-    post("/update", {
+    const resp = await post("/update", {
       sessionkey: verifiedKey,
       email: verifiedEmail,
       publickey: publicKey,
       likes: likes,
     });
-    alert(
-      "successfully updated preferences! check your email (and in particular your junk folder)"
-    );
+    if (resp.ok) {
+      alert(
+        "successfully updated preferences! check your email (and in particular your junk folder)"
+      );
+    } else {
+      alert(`unsuccessful update: ${resp.statusText}`);
+    }
   }, [
     email,
     password,
