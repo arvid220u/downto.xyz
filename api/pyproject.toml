@@ -10,6 +10,10 @@ python = "^3.8"
 fastapi = "^0.70.0"
 uvicorn = {extras = ["standard"], version = "^0.15.0"}
 python-dotenv = "^0.19.1"
+PyJWT = "^2.2.0"
+databases = {extras = ["sqlite"], version = "^0.5.3"}
+pycryptodome = "^3.11.0"
+pytz = "^2021.3"
 
 [tool.poetry.dev-dependencies]
 
