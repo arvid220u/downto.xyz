@@ -1,6 +1,6 @@
-# downto.xyz
+# downto
 
-find out mutual likes, without revealing unrequited likes to anyone.
+find out mutual likes, without revealing unrequited likes to anyone. (previously hosted at downto.xyz)
 
 ## privacy
 
