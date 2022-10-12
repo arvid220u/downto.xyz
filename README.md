@@ -19,3 +19,7 @@ threat model: when submitting preferences, the server is honest. however, the se
 to prevent knowledge of who has used the website, all tables are filled with random keys in the beginning. this requires us to modify the protocol above slightly, by storing two versions of $k$ and $r$ for each pair of users.
 
 to prove security, one would use the fact that $h$ is encrypted using a one-time pad, which is known to be perfectly secure. the stored value of $f$ functions as a zero-knowledge proof that the user has computed $h$ for the correct set of users, and the nonce $r$ is used to ensure that it is impossible to figure out the preimage of the $h$s even though there are only $O(n^2)$ such pairs with $n$ users.
+
+## screenshot
+
+![Screen Shot 2022-10-12 at 11 24 03 AM](https://user-images.githubusercontent.com/2716295/195383780-61f05aba-9651-4f02-8b80-e7a2248c30c9.png)
